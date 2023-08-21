@@ -1,0 +1,23 @@
+$COUNT=15
+ls -l
+peek -l
+peek 
+warp -
+warp ../../../../../../../
+ls
+cd Tests
+cd Haha
+cd Tests/..
+warp Tests/..
+warp ../mini-project-0-gaurav-behera ../mini-project-1-gaurav-behera
+seek newfolder
+ls
+ls
+warp ..
+5 &
+older
+k -d newfolder
+newfolder
+newfolder
+wfolder
+ewfolder
