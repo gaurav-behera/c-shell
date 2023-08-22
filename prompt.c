@@ -21,9 +21,10 @@ void prompt()
 
     printf(GREEN_COLOR "<");
     printf(LIGHT_BLUE_COLOR "%s", userName);
-    printf(GRAY_COLOR "@");
-    printf(BLUE_COLOR "%s", systemName);
+    printf(LIGHT_GRAY_COLOR "@");
+    printf(CYAN_COLOR "%s", systemName);
     printf(GREEN_COLOR ":");
-    printf(GREEN_COLOR"%s", getRelativePath(pwd));
+    printf(GREEN_COLOR"%s", getRelativePathHome(pwd));
+    printf(GRAY_COLOR"%s", getLastCommand());
     printf(GREEN_COLOR"> " RESET_COLOR);
 }

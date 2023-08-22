@@ -16,19 +16,20 @@ int main()
 
         int startPos = 0;
         int currentPos = 0;
-        int commandLength = strlen(input);
-        // input[commandLength] = '\0';
+        int inputLength = strlen(input);
+        // input[inputLength] = '\0';
 
-        if (commandLength == 0)
+        input = modifyInput(input);
+        printf("Modified Input: .%s.\n", input);
+        input[strlen(input)] = '\n';
+
+        if (inputLength == 0)
         {
             continue;
         }
-
-        // input = modifyInput(input);
-        // printf("Modified Input: %s\n" input);
-        // continue;
+        
         int success = 0;
-        for (currentPos = 0; currentPos < commandLength + 1; currentPos++)
+        for (currentPos = 0; currentPos < inputLength + 1; currentPos++)
         {
             if (input[currentPos] == ';' || input[currentPos] == '&' || input[currentPos] == '\n')
             {

@@ -5,19 +5,31 @@ void setup()
     getcwd(home, 4096);
     home[strlen(home)] = '\0';
     printf("Home: %s\n", home);
-    char *path = malloc(sizeof(char) * (5 + strlen(home) + 1 + 9));
-    strncpy(path, "$HOME=", 6);
-    strcpy(path + 6, home);
-    strncpy(path + strlen(home) + 6, "\n$LASTPATH=", 11);
+    char *text = malloc(sizeof(char) * 4096);
+
+    strncpy(text, "$HOME=", 6);
+    strcpy(text + 6, home);
+    strcpy(text + strlen(text), "\n$PID=");
+    char *pidStr = malloc(sizeof(char) * 10);
+
+    pid_t pid = getpid();
+    sprintf(pidStr, "%d", pid);
+    strcpy(text + strlen(text), pidStr);
+
+    strcpy(text + strlen(text), "\n$LASTCOMMAND=");
+    strcpy(text + strlen(text), "\n$LASTPATH=");
+
+    truncate("shellprofile", 0);
     int file = open("shellprofile", O_CREAT | O_WRONLY, 0777);
-    write(file, path, 6 + strlen(home) + 11);
+    write(file, text, strlen(text));
     close(file);
+
     file = open("shellhistory", O_CREAT | O_WRONLY, 0777);
     write(file, "$COUNT=", 7);
     close(file);
 }
 
-char *getRelativePath(char *pwd)
+char *getRelativePathHome(char *pwd)
 {
     if (strcmp(pwd, home) == 0)
     {
@@ -33,6 +45,25 @@ char *getRelativePath(char *pwd)
     else
     {
         return pwd;
+    }
+}
+
+char *getRelativePath(char *pwd, char *base)
+{
+    if (strcmp(pwd, base) == 0)
+    {
+        return "./";
+    }
+    if (strncmp(pwd, base, strlen(base)) == 0)
+    {
+        char *relPath = malloc(sizeof(char) * 4096);
+        strcpy(relPath, ".");
+        strcpy(relPath + 1, pwd + strlen(base));
+        return relPath;
+    }
+    else
+    {
+        return getRelativePathHome(pwd);
     }
 }
 
@@ -78,6 +109,36 @@ void savePath(char *path)
     close(file);
 }
 
+pid_t getShellPID()
+{
+    char *text = malloc(sizeof(char) * 4096);
+    char shellprofilepath[4096];
+    strcpy(shellprofilepath, home);
+    strcpy(shellprofilepath + strlen(home), "/shellprofile");
+    int file = open(shellprofilepath, O_RDONLY);
+    read(file, text, 4096);
+    int pos = 0, startPos = 0;
+    for (pos = 0; pos < strlen(text); pos++)
+    {
+        if (strncmp(text + pos, "$PID=", 5) == 0)
+        {
+            startPos = pos;
+        }
+        if (text[pos] == '\n')
+        {
+            break;
+        }
+    }
+    char *pidStr = malloc(sizeof(char) * 10);
+    for (int i = startPos + 5; i < pos - 1; i++)
+    {
+        pidStr[i - startPos - 5] = text[i];
+    }
+    close(file);
+    pid_t pid = atoi(pidStr);
+    return pid;
+}
+
 char *retriveLastPath()
 {
     char *text = malloc(sizeof(char) * 4096);
@@ -100,15 +161,129 @@ char *retriveLastPath()
     return lastPath;
 }
 
+void saveLastCommand(char * command){
+    char *text = malloc(sizeof(char) * 4096);
+    char shellprofilepath[4096];
+    strcpy(shellprofilepath, home);
+    strcpy(shellprofilepath + strlen(home), "/shellprofile");
+    int file = open(shellprofilepath, O_RDONLY);
+    read(file, text, 4096);
+    int pos = 0;
+    for (pos = 0; pos < strlen(text); pos++)
+    {
+        if (strncmp(text + pos, "$LASTCOMMAND=", 13) == 0)
+        {
+            break;
+        }
+    }
+    char *lastpath = retriveLastPath();
+    truncate(shellprofilepath, pos+13);
+    close(file);
+    file = open(shellprofilepath, O_WRONLY);
+    lseek(file, pos + 13, SEEK_SET);
+    write(file, command, strlen(command));
+    write(file, "\n$LASTPATH=", 11);
+    write(file, lastpath, strlen(lastpath));
+    close(file);
+}
+
+char *getLastCommand()
+{
+    char *text = malloc(sizeof(char) * 4096);
+    char shellprofilepath[4096];
+    strcpy(shellprofilepath, home);
+    strcpy(shellprofilepath + strlen(home), "/shellprofile");
+    int file = open(shellprofilepath, O_RDONLY);
+    read(file, text, 4096);
+    int pos = 0, startPos = 0;
+    for (pos = 0; pos < strlen(text); pos++)
+    {
+        if (strncmp(text + pos, "$LASTCOMMAND=", 13) == 0)
+        {
+            startPos = pos;
+        }
+        if (strncmp(text + pos, "$LASTPATH=", 10) == 0)
+        {
+            break;
+        }
+    }
+    char *lastCommand = malloc(sizeof(char) * 4096);
+    for (int i = startPos + 13; i < pos-1; i++)
+    {
+        lastCommand[i - startPos - 13] = text[i];
+    }
+    lastCommand[pos-startPos-14] = '\0';
+    close(file);
+    saveLastCommand("");
+    return lastCommand;
+}
+
 char *modifyInput(char *input)
 {
     char *newInput = malloc(sizeof(char) * 4096);
+    int startPos = 0;
+    int currentPos = 0;
 
+    char spaceDelimiters[9] = " \n\t\r\b\f\0";
+
+    for (currentPos = 0; currentPos < strlen(input) + 1; currentPos++)
+    {
+        if (input[currentPos] == ';' || input[currentPos] == '&' || input[currentPos] == '\n')
+        {
+            char *command = malloc(sizeof(char) * 4096);
+            strncpy(command, input + startPos, currentPos - startPos);
+            char *newCommand = malloc(sizeof(char) * 4096);
+            startPos = currentPos + 1;
+
+            char *token = strtok(command, spaceDelimiters);
+            if (token == NULL)
+            {
+                continue;
+            }
+            // printf("token: .%s.\n", token);
+
+            if (token == NULL)
+            {
+                break;
+            }
+
+            strcpy(newCommand, token);
+            while (token != NULL)
+            {
+                token = strtok(NULL, spaceDelimiters);
+                if (token != NULL)
+                {
+                    newCommand[strlen(newCommand)] = ' ';
+                    strncpy(newCommand + strlen(newCommand), token, strlen(token));
+                }
+            }
+
+            if ((strncmp(newCommand, "pastevents execute ", 19) == 0))
+            {
+                newCommand = getFromHistory(atoi(newCommand + 19));
+            }
+
+            if (input[currentPos] != '\n')
+            {
+                newCommand[strlen(newCommand)] = input[currentPos];
+            }
+            strncpy(newInput + strlen(newInput), newCommand, strlen(newCommand));
+            if (input[currentPos] != '\n')
+            {
+                newInput[strlen(newInput)] = ' ';
+            }
+        }
+    }
     return newInput;
 }
 
 void saveInput(char *input)
 {
+    if (input[strlen(input) - 1] == '\n')
+    {
+        input[strlen(input) - 1] = '\0';
+    }
+
     if (strlen(input) == 0)
     {
         return;
@@ -122,11 +297,16 @@ void saveInput(char *input)
         }
     }
 
+    if (strcmp(input, getFromHistory(1)) == 0)
+    {
+        return;
+    }
+
     char *text = malloc(sizeof(char) * 4096);
-    char shellprofilepath[4096];
-    strcpy(shellprofilepath, home);
-    strcpy(shellprofilepath + strlen(home), "/shellhistory");
-    int file = open(shellprofilepath, O_RDONLY);
+    char shellhistorypath[4096];
+    strcpy(shellhistorypath, home);
+    strcpy(shellhistorypath + strlen(home), "/shellhistory");
+    int file = open(shellhistorypath, O_RDONLY);
     read(file, text, 4096);
     int pos = 0;
     for (pos = 7; pos < strlen(text); pos++)
@@ -148,12 +328,13 @@ void saveInput(char *input)
         commandCount++;
         sprintf(countStr, "%d", commandCount);
     }
-    file = open(shellprofilepath, O_WRONLY);
+    file = open(shellhistorypath, O_WRONLY);
 
     lseek(file, 7, SEEK_SET);
     write(file, countStr, strlen(countStr));
     write(file, "\n", 1);
     write(file, input, strlen(input));
+    write(file, "\n", 1);
     int startPos = pos + 1;
     int currCount = 1;
     for (int i = pos + 1; i < strlen(text) && currCount < commandCount; i++)
@@ -163,7 +344,6 @@ void saveInput(char *input)
             write(file, text + startPos, i - startPos);
             write(file, "\n", 1);
             startPos = i + 1;
-            ;
             currCount++;
         }
     }
@@ -173,10 +353,10 @@ void saveInput(char *input)
 char *getFromHistory(int position)
 {
     char *text = malloc(sizeof(char) * 4096);
-    char shellprofilepath[4096];
-    strcpy(shellprofilepath, home);
-    strcpy(shellprofilepath + strlen(home), "/shellhistory");
-    int file = open(shellprofilepath, O_RDONLY);
+    char shellhistorypath[4096];
+    strcpy(shellhistorypath, home);
+    strcpy(shellhistorypath + strlen(home), "/shellhistory");
+    int file = open(shellhistorypath, O_RDONLY);
     read(file, text, 4096);
     int pos = 0;
     for (pos = 7; pos < strlen(text); pos++)
@@ -190,10 +370,11 @@ char *getFromHistory(int position)
     strncpy(countStr, text + 7, pos - 7);
     int commandCount = atoi(countStr);
 
+    char *newCommand = malloc(sizeof(char) * 4096);
     if (position < 1 || position > commandCount)
     {
         printf("Invlid argument pos = %d\n", position);
-        return NULL;
+        return newCommand;
     }
 
     int currCount = 0;
@@ -211,9 +392,8 @@ char *getFromHistory(int position)
             startPos = endPos + 1;
         }
     }
-    char *newCommand = malloc(sizeof(char) * 4096);
     strncpy(newCommand, text + startPos, endPos - startPos);
-    printf("Comamd: %s\n", newCommand);
+    // printf("Comamd: %s\n", newCommand);
     return newCommand;
 }
 
@@ -266,6 +446,13 @@ char *getRealPath(char *path, char *newpath)
     return newpath;
 }
 
+char *getComamndName(char *command)
+{
+    char spaceDelimiters[9] = " \n\t\r\b\f\0";
+    char *funcName = strtok(command, spaceDelimiters);
+    return funcName;
+}
+
 void executeInForeground(char *command)
 {
     pid_t childPID = fork();
@@ -277,7 +464,26 @@ void executeInForeground(char *command)
     else if (childPID > 0)
     {
         // parent Prcess
+        time_t startTime = time(NULL);
         wait(NULL);
+        time_t endTime = time(NULL);
+        int executionTime = endTime - startTime;
+        char *lastCommand = malloc(sizeof(char) * 4096);
+        if (executionTime > 2)
+        {
+            char * timeStr = malloc(sizeof(char)*10);
+            sprintf(timeStr, "%d", executionTime);
+            strcpy(lastCommand, " ");
+            strcpy(lastCommand+1, getComamndName(command));
+            strcpy(lastCommand+strlen(lastCommand), " : ");
+            strcpy(lastCommand+strlen(lastCommand), timeStr);
+            strcpy(lastCommand+strlen(lastCommand), "s");
+        }
+        else
+        {
+            lastCommand = "";
+        }
+        saveLastCommand(lastCommand);
     }
     else
     {
@@ -316,8 +522,6 @@ void checkBackgroundCompletion()
 
 int executeCommand(char *command)
 {
-    // printf("Command: %s\n", command);
-
     char spaceDelimiters[9] = " \n\t\r\b\f\0";
     char *token = strtok(command, spaceDelimiters);
 
@@ -338,15 +542,6 @@ int executeCommand(char *command)
         }
     }
 
-    // printf("Function: %s\n", function);
-    // printf("Argument Count: %d\n", argCount);
-    // printf("Arguments: ");
-    // for (int i = 0; i < argCount; i++)
-    // {
-    //     printf("%s, ", arguments[i]);
-    // }
-    // printf("\n");
-
     int successfulRun = 0;
     if (strcmp(function, "warp") == 0)
     {
@@ -363,6 +558,10 @@ int executeCommand(char *command)
     else if (strcmp(function, "pastevents") == 0)
     {
         successfulRun = pastevents(argCount, arguments);
+    }
+    else if (strcmp(function, "proc") == 0)
+    {
+        successfulRun = proc(argCount, arguments);
     }
     else
     {
@@ -434,9 +633,9 @@ int executeCommand_working(char *command)
     return successfulRun;
 }
 
-char * searchItem(char *search, char *dir, int *count, bool fFlag, bool dFlag)
+char *searchItem(char *search, char *dir, char *originalDir, int *count, bool fFlag, bool dFlag)
 {
-    char * retValue = malloc(sizeof(char)*4096);
+    char *retValue = malloc(sizeof(char) * 4096);
     struct dirent **itemList;
     int itemsCount = scandir(dir, &itemList, NULL, alphasort);
 
@@ -455,11 +654,11 @@ char * searchItem(char *search, char *dir, int *count, bool fFlag, bool dFlag)
         {
             if ((dFlag == true) && (strncmp(itemList[i]->d_name, search, strlen(search)) == 0))
             {
-                printf(BLUE_COLOR "%s\n" RESET_COLOR, (newPath));
+                printf(BLUE_COLOR "%s\n" RESET_COLOR, getRelativePath(newPath, originalDir));
                 (*count)++;
                 strcpy(retValue, newPath);
             }
-            char * newRet = searchItem(search, newPath, count, fFlag, dFlag);
+            char *newRet = searchItem(search, newPath, originalDir, count, fFlag, dFlag);
             if (strlen(newRet) != 0)
             {
                 strcpy(retValue, newRet);
@@ -469,7 +668,7 @@ char * searchItem(char *search, char *dir, int *count, bool fFlag, bool dFlag)
         {
             if ((fFlag == true) && (strncmp(itemList[i]->d_name, search, strlen(search)) == 0))
             {
-                printf(GREEN_COLOR "%s\n" RESET_COLOR, (newPath));
+                printf(GREEN_COLOR "%s\n" RESET_COLOR, getRelativePath(newPath, originalDir));
                 (*count)++;
                 strcpy(retValue, newPath);
             }
@@ -490,7 +689,7 @@ int warp(int argc, char *argv[])
     {
         char pwd[4096];
         getcwd(pwd, 4096);
-        printf("Current Directory: %s\n", getRelativePath(pwd));
+        printf("Current Directory: %s\n", getRelativePathHome(pwd));
 
         char *newpath = getAbsolutePath(pwd, argv[i]);
         // char * newpath =malloc(sizeof(char)*4096);
@@ -560,6 +759,10 @@ int peek(int argc, char *argv[])
     strcpy(itemPath, pwd);
     strcpy(itemPath + pwdLength, "/");
     // printf("l: %d, a: %d\n", lFlag, aFlag);
+    struct stat dirDetails;
+    stat(pwd, &dirDetails);
+    printf("total %d\n", dirDetails.st_blocks);
+
     for (int i = 0; i < itemsCount; i++)
     {
         strcpy(itemPath + pwdLength + 1, itemList[i]->d_name);
@@ -699,7 +902,7 @@ int seek(int argc, char *argv[])
         dFlag = true;
         fFlag = true;
     }
-    
+
     char *search = malloc(sizeof(char) * 4096);
     if (argi < argc)
     {
@@ -717,38 +920,216 @@ int seek(int argc, char *argv[])
         strcpy(pwd, getAbsolutePath(pwd, argv[argi]));
     }
 
-    printf("Flags <d,e,f>: %d %d %d\n", dFlag, eFlag, fFlag);
-    printf("Search Str: %s \n", search);
-    printf("Directory: %s \n", pwd);
+    // printf("Flags <d,e,f>: %d %d %d\n", dFlag, eFlag, fFlag);
+    // printf("Search Str: %s \n", search);
+    // printf("Directory: %s \n", pwd);
 
     int *count = malloc(sizeof(int));
     (*count) = 0;
-    char * foundItem = searchItem(search, pwd, count, fFlag, dFlag);
-    printf("count: %d\n", *count);
-    printf("ret: %s\n", foundItem);
+    char *foundItem = searchItem(search, pwd, pwd, count, fFlag, dFlag);
+    // printf("count: %d\n", *count);
+    // printf("ret: %s\n", foundItem);
+
+    if (*count == 0)
+    {
+        printf("No match found!\n");
+    }
+
+    if ((eFlag == true) && (*count == 1))
+    {
+        if (fFlag == true)
+        {
+            char *text = malloc(sizeof(char) * 4096);
+            int file = open(foundItem, O_RDONLY);
+            int bytesRead = 0;
+            while ((bytesRead = read(file, text, 4095)) > 0)
+            {
+                text[bytesRead] = '\0';
+                printf("%s\n", text);
+            }
+        }
+        if (dFlag == true)
+        {
+            chdir(foundItem);
+        }
+    }
+
     return statusCode;
+}
+
+void printHistory(char *text)
+{
+    for (int i = 0; i < strlen(text); i++)
+    {
+        if (text[i] == '\n')
+        {
+            text[i] = '\0';
+            printHistory(text + i + 1);
+            break;
+        }
+    }
+    if (strlen(text) > 0)
+    {
+        printf("%s\n", text);
+    }
 }
 
 int pastevents(int argc, char *argv[])
 {
     int statusCode = 0;
+    char *text = malloc(sizeof(char) * 4096);
+    char shellhistorypath[4096];
+    strcpy(shellhistorypath, home);
+    strcpy(shellhistorypath + strlen(home), "/shellhistory");
+
+    if (argc == 0)
+    {
+        // print 15 commands
+        int file = open(shellhistorypath, O_RDONLY);
+        read(file, text, 4096);
+        int pos = 0;
+        for (pos = 7; pos < strlen(text); pos++)
+        {
+            if (text[pos] == '\n')
+            {
+                break;
+            }
+        }
+        // printf("%s", text + pos + 1);
+        printHistory(text + pos + 1);
+        close(file);
+    }
+    else if ((argc == 1) && (strcmp(argv[0], "purge") == 0))
+    {
+        int file = open(shellhistorypath, O_WRONLY | O_TRUNC);
+        if (truncate(shellhistorypath, 0) == -1)
+        {
+            printf("Error, failed to truncate\n");
+            return statusCode;
+        }
+        close(file);
+        file = open("shellhistory", O_CREAT | O_WRONLY, 0777);
+        write(file, "$COUNT=0", 8);
+        close(file);
+    }
+    else
+    {
+        printf("Invalid Arguments\n");
+        return statusCode;
+    }
+
+    return statusCode;
+}
+
+int proc(int argc, char *argv[])
+{
+    int statusCode = 0;
+    pid_t processPID;
+    if (argc == 0)
+    {
+        pid_t shellPID = getShellPID();
+        processPID = shellPID;
+    }
+    else if (argc > 1)
+    {
+        printf("Invalid Arguments!\n");
+        return statusCode;
+    }
+    else
+    {
+        processPID = atoi(argv[0]);
+    }
+
+    printf("pid : %d\n", processPID);
+    char *processPIDStr = malloc(sizeof(char) * 10);
+    sprintf(processPIDStr, "%d", processPID);
+
+    char *procStatusFilePath = malloc(sizeof(char) * 4096);
+    strcpy(procStatusFilePath, "/proc/");
+    strcpy(procStatusFilePath + strlen(procStatusFilePath), processPIDStr);
+    strcpy(procStatusFilePath + strlen(procStatusFilePath), "/status");
 
     char *text = malloc(sizeof(char) * 4096);
-    char shellprofilepath[4096];
-    strcpy(shellprofilepath, home);
-    strcpy(shellprofilepath + strlen(home), "/shellhistory");
-    int file = open(shellprofilepath, O_RDONLY);
-    read(file, text, 4096);
-    int pos = 0;
-    for (pos = 7; pos < strlen(text); pos++)
+    // printf("path: %s\n", procStatusFilePath);
+    int procStatusFile = open(procStatusFilePath, O_RDONLY);
+    if (procStatusFile < 0)
     {
-        if (text[pos] == '\n')
+        printf("Error retriving details\n");
+    }
+    read(procStatusFile, text, 4096);
+
+    char *statePtr = strstr(text, "State:");
+    char processState[3];
+    for (int i = 6; i < strlen(statePtr); i++)
+    {
+        if ((statePtr[i] == 'R') || (statePtr[i] == 'S') || (statePtr[i] == 'Z'))
+        {
+            processState[0] = statePtr[i];
+            if (statePtr[i + 1] == '+')
+            {
+                processState[1] = '+';
+                processState[2] = '\0';
+            }
+            else
+            {
+                processState[1] = '\0';
+            }
+            break;
+        }
+        if (statePtr[i] == '\n')
         {
             break;
         }
     }
-    printf("%s", text + pos + 1);
-    close(file);
+    printf("Process State : %s\n", processState);
+
+    char *groupPtr = strstr(text, "Tgid:");
+    char processGroup[20];
+    int j = 0;
+    for (int i = 5; i < strlen(groupPtr); i++)
+    {
+        if (groupPtr[i] >= '0' && groupPtr[i] <= '9')
+        {
+            processGroup[j++] = groupPtr[i];
+        }
+        if (groupPtr[i] == '\n')
+        {
+            processGroup[j++] = '\0';
+            break;
+        }
+    }
+    printf("Process Group : %s\n", processGroup);
+
+    char *vmSizePtr = strstr(text, "VmSize:");
+    char vmSize[20];
+    j = 0;
+    for (int i = 7; i < strlen(vmSizePtr); i++)
+    {
+        if (vmSizePtr[i] >= '0' && vmSizePtr[i] <= '9')
+        {
+            vmSize[j++] = vmSizePtr[i];
+        }
+        if (vmSizePtr[i] == '\n')
+        {
+            vmSize[j++] = '\0';
+            break;
+        }
+    }
+    printf("Virtual memory : %s\n", vmSize);
+
+    char *exePath = malloc(sizeof(char) * 4096);
+    strcpy(exePath, "/proc/");
+    strcpy(exePath + strlen(exePath), processPIDStr);
+    strcpy(exePath + strlen(exePath), "/exe");
+    char *readLinkPath = malloc(sizeof(char) * 4096);
+    if (readlink(exePath, readLinkPath, 4096) == -1)
+    {
+        printf("Error retriving executable path!\n");
+    }
+    else
+    {
+        printf("Executable path : %s\n", getRelativePathHome(readLinkPath));
+    }
 
     return statusCode;
 }
