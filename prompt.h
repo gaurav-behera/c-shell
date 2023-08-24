@@ -1,5 +1,5 @@
-#ifndef __PROMPT_H
-#define __PROMPT_H
+#ifndef __PROMPT_H_
+#define __PROMPT_H_
 
 void prompt();
 

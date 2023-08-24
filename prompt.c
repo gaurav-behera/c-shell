@@ -1,30 +1,35 @@
 #include "headers.h"
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
 
 void prompt()
 {
     // getting Username and System Name
-    char *userName = getlogin();
-    char systemName[256];
-    int sysNameStatus = gethostname(systemName, 256);
+    char userName[4096] = "";
+    char systemName[4096] = "";
 
-    if (userName == NULL || sysNameStatus != 0)
+    if ((gethostname(systemName, 4096) != 0) || (getlogin_r(userName, 4096) != 0))
     {
-        printf(WHITE_COLOR "Error in retriving details!\n");
+        perror(WHITE_COLOR "Error in retriving details!\n");
         exit(0);
     }
 
-    char pwd[4096];
+    char *pwd = malloc(sizeof(char)*4096);
     getcwd(pwd, 4096);
 
-    printf(GREEN_COLOR "<");
+    char *lastCommand = getLastCommand();
+    char *relPath = getRelativePathHome(pwd);
+
+    printf(LIGHT_GREEN_COLOR "<");
     printf(LIGHT_BLUE_COLOR "%s", userName);
-    printf(LIGHT_GRAY_COLOR "@");
+    printf(GREEN_COLOR "@");
     printf(CYAN_COLOR "%s", systemName);
-    printf(GREEN_COLOR ":");
-    printf(GREEN_COLOR"%s", getRelativePathHome(pwd));
-    printf(GRAY_COLOR"%s", getLastCommand());
-    printf(GREEN_COLOR"> " RESET_COLOR);
+    printf(LIGHT_GREEN_COLOR ":");
+    printf(GREEN_COLOR "%s", relPath);
+    printf(GRAY_COLOR "%s", lastCommand);
+    printf(LIGHT_GREEN_COLOR "> " RESET_COLOR);
+
+    free(lastCommand);
+    free(relPath);
+    free(pwd);
+
+    return;
 }

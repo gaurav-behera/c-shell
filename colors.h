@@ -1,4 +1,7 @@
-#include <stdio.h>
+#ifndef __COLORS_H_
+#define __COLORS_H_
+
+#include "headers.h"
 
 #define RESET_COLOR "\x1B[0m"
 #define BLACK_COLOR "\x1B[30m"
@@ -18,3 +21,5 @@
 #define DARK_GREEN "\033[0;32m" 
 #define DARK_BLUE "\033[0;34m" 
 #define DARK_CYAN "\033[0;36m"  
+
+#endif
