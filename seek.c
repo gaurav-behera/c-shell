@@ -5,11 +5,7 @@ char *searchItem(char *search, char *dir, char *originalDir, int *count, bool fF
     char *retValue = malloc(sizeof(char) * 4096);
     struct dirent **itemList;
     int itemsCount = scandir(dir, &itemList, NULL, alphasort);
-    if (itemsCount == -1)
-    {
-        printError();
-    }
-    
+
     int dirLength = strlen(dir);
     for (int i = 0; i < itemsCount; i++)
     {
@@ -98,6 +94,9 @@ int seek(int argc, char *argv[])
             noFlagsGiven = false;
             fFlag = true;
         }
+        else if (argv[argi][0] == '-'){
+            printWarning("Invalid Flags");
+        }
         else
         {
             break;
@@ -157,7 +156,22 @@ int seek(int argc, char *argv[])
         }
         if (dFlag == true)
         {
-            chdir(foundItem);
+            struct stat st;
+            if (stat(foundItem, &st) == 0)
+            {
+                if ((st.st_mode & S_IXUSR) == 0)
+                {
+                    printWarning("Missing permissions for task!");
+                    return statusCode;
+                }
+                else
+                {
+                    chdir(foundItem);
+                }
+            }
+            else{
+                printError();
+            }
         }
     }
 
