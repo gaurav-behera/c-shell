@@ -30,6 +30,7 @@ int proc(int argc, char *argv[])
         printError();
         return statusCode;
     }
+    printf("processGroup Id: %d\n tc_pgid= %d\n", processGroupID, tc_pgid);
 
     char *processPIDStr = malloc(sizeof(char) * 10);
     sprintf(processPIDStr, "%d", processPID);
@@ -136,7 +137,8 @@ int proc(int argc, char *argv[])
     if (readlink(exePath, readLinkPath, 4096) == -1)
     {
         // printf("Error retriving executable path!\n");
-        printError();
+        // printError();
+        printErrorMsg("Unable to extract execuatable path");
         return statusCode;
     }
     printf(WHITE_COLOR"Executable path : %s\n" RESET_COLOR, getRelativePathHome(readLinkPath));

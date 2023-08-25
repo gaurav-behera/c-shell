@@ -17,7 +17,7 @@ void setup()
     strcpy(text + strlen(text), pidStr);
 
     strcpy(text + strlen(text), "\n$LASTCOMMAND=");
-    strcpy(text + strlen(text), "\n$LASTPATH=");
+    strcpy(text + strlen(text), "\n$LASTPATH=OLDPWD");
 
     int file = open("shellprofile", O_CREAT | O_WRONLY | O_TRUNC, 0666);
     truncate("shellprofile", 0);

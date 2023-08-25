@@ -23,7 +23,15 @@ int peek(int argc, char *argv[])
         }
         else if (argv[argi][0] == '-')
         {
-            printWarning("Invalid Flags");
+            if (strlen(argv[argi]) == 1)
+            {
+                printErrorMsg("No such file or directory");
+                return statusCode;
+            }
+            else
+            {
+                printWarning("Invalid Flags");
+            }
         }
         else
         {
@@ -41,7 +49,6 @@ int peek(int argc, char *argv[])
     {
         printWarning("Extra Arguments");
     }
-    
 
     struct dirent **itemList;
     int itemsCount = scandir(pwd, &itemList, NULL, alphasort);
@@ -55,10 +62,51 @@ int peek(int argc, char *argv[])
     strcpy(itemPath, pwd);
     strcpy(itemPath + pwdLength, "/");
 
-    struct stat dirDetails;
-    stat(pwd, &dirDetails);
-    printf(WHITE_COLOR"total %ld\n" RESET_COLOR, dirDetails.st_blocks);
+    // struct stat dirDetails;
+    // stat(pwd, &dirDetails);
+    // printf(WHITE_COLOR "total %ld\n" RESET_COLOR, dirDetails.st_blocks);
 
+    int spacing[6] = {0};
+    spacing[0] = 9;
+    int totalBlockSize = 0;
+    for (int i = 0; i < itemsCount; i++)
+    {
+        strcpy(itemPath + pwdLength + 1, itemList[i]->d_name);
+        struct stat itemDetials;
+        lstat(itemPath, &itemDetials);
+
+        totalBlockSize += itemDetials.st_blocks;
+
+        char hardLinksStr[1024] = "";
+        sprintf(hardLinksStr, "%d", itemDetials.st_nlink);
+        spacing[1] = spacing[1] < strlen(hardLinksStr) ? strlen(hardLinksStr) : spacing[1];
+
+        char *owner = getpwuid(itemDetials.st_uid)->pw_name;
+        char *group = getgrgid(itemDetials.st_gid)->gr_name;
+        spacing[2] = spacing[2] < strlen(owner) ? strlen(owner) : spacing[2];
+        spacing[3] = spacing[3] < strlen(group) ? strlen(group) : spacing[3];
+
+        char sizeStr[1024] = "";
+        sprintf(sizeStr, "%ld", itemDetials.st_size);
+        spacing[4] = spacing[4] < strlen(sizeStr) ? strlen(sizeStr) : spacing[4];
+
+        char lastModified[1024];
+        time_t six_months_ago = time(NULL) - (6 * 30 * 24 * 60 * 60);
+
+        if (itemDetials.st_mtime < six_months_ago)
+        {
+            strftime(lastModified, sizeof(lastModified), "%H:%M", localtime(&(itemDetials.st_mtime)));
+        }
+        else
+        {
+            strftime(lastModified, sizeof(lastModified), "%h %d %H:%M", localtime(&(itemDetials.st_mtime)));
+        }
+        spacing[5] = spacing[5] < strlen(lastModified) ? strlen(lastModified) : spacing[5];
+    }
+    if (lFlag == true)
+    {
+        printf(WHITE_COLOR"Total %d\n", totalBlockSize);
+    }
     for (int i = 0; i < itemsCount; i++)
     {
         strcpy(itemPath + pwdLength + 1, itemList[i]->d_name);
@@ -69,9 +117,9 @@ int peek(int argc, char *argv[])
             continue;
         }
 
+            printf(WHITE_COLOR);
         if (lFlag == true)
         {
-            printf(WHITE_COLOR);
             printf((S_ISDIR(itemDetials.st_mode)) ? "d" : "-");
             printf((itemDetials.st_mode & S_IRUSR) ? "r" : "-");
             printf((itemDetials.st_mode & S_IWUSR) ? "w" : "-");
@@ -83,24 +131,15 @@ int peek(int argc, char *argv[])
             printf((itemDetials.st_mode & S_IWOTH) ? "w" : "-");
             printf((itemDetials.st_mode & S_IXOTH) ? "x" : "-");
 
-            printf(WHITE_COLOR " %3hu", itemDetials.st_nlink);
+            printf(WHITE_COLOR " %*hu ", spacing[1], itemDetials.st_nlink);
 
-            printf(WHITE_COLOR " %15s %7s", getpwuid(itemDetials.st_uid)->pw_name, getgrgid(itemDetials.st_gid)->gr_name);
+            printf(WHITE_COLOR "%*s %*s ", spacing[2], getpwuid(itemDetials.st_uid)->pw_name, spacing[3], getgrgid(itemDetials.st_gid)->gr_name);
 
-            printf(WHITE_COLOR " %6ld", itemDetials.st_size);
+            printf(WHITE_COLOR "%*ld ", spacing[4], itemDetials.st_size);
 
-            char time_buffer[1024];
-            time_t six_months_ago = time(NULL) - (6 * 30 * 24 * 60 * 60);
-
-            if (itemDetials.st_mtime < six_months_ago)
-            {
-                strftime(time_buffer, sizeof(time_buffer), "%H:%M", localtime(&(itemDetials.st_mtime)));
-            }
-            else
-            {
-                strftime(time_buffer, sizeof(time_buffer), "%h %d %H:%M", localtime(&(itemDetials.st_mtime)));
-            }
-            printf(WHITE_COLOR " %15s  ", time_buffer);
+            char lastModified[1024];
+            strftime(lastModified, sizeof(lastModified), "%h %d %H:%M", localtime(&(itemDetials.st_mtime)));
+            printf(WHITE_COLOR "%*s ", spacing[5], lastModified);
         }
 
         if (S_ISDIR(itemDetials.st_mode))
@@ -110,6 +149,12 @@ int peek(int argc, char *argv[])
         else if (S_ISLNK(itemDetials.st_mode))
         {
             printf(CYAN_COLOR "%s" RESET_COLOR, itemList[i]->d_name);
+            if (lFlag == true)
+            {
+                char readLinkPath[4096] = "";
+                readlink(itemPath, readLinkPath, 4096);
+                printf(CYAN_COLOR " -> %s" RESET_COLOR, readLinkPath);
+            }
         }
         else if (S_ISREG(itemDetials.st_mode))
         {

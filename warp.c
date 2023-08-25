@@ -4,8 +4,10 @@ int warp(int argc, char *argv[])
 {
     int statusCode = 0;
     if (argc == 0)
-    {   
-        printf(WHITE_COLOR"%s\n"RESET_COLOR, home);
+    {
+        printf(WHITE_COLOR "%s\n", home);
+            printf("%s", RESET_COLOR);
+
         chdir(home);
     }
     for (int i = 0; i < argc; i++)
@@ -14,17 +16,20 @@ int warp(int argc, char *argv[])
         getcwd(pwd, 4096);
         char *newpath = getAbsolutePath(pwd, argv[i]);
 
-        if (chdir(newpath) == 0 && newpath != NULL)
+        if (strncmp(newpath, "OLDPWD", 6) == 0)
         {
-        printf(WHITE_COLOR"%s\n", newpath);
+            printWarning("OLDPWD not set");
+        }
+        else if (chdir(newpath) == 0 && newpath != NULL)
+        {
+            printf(WHITE_COLOR "%s\n", newpath);
+            printf("%s", RESET_COLOR);
+
             savePath(pwd);
             statusCode = 1;
         }
         else
         {
-            // printf("Failed to change directory\n");
-            // perror(RED_COLOR"ERROR" LIGHT_RED_COLOR);
-            // printf(RESET_COLOR);
             printError();
             statusCode = 0;
             free(newpath);

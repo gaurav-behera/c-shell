@@ -3,7 +3,7 @@
 
 #include "headers.h"
 
-#define RESET_COLOR "\x1B[0m"
+#define RESET_COLOR "\033[0m"
 #define BLACK_COLOR "\x1B[30m"
 #define GRAY_COLOR "\x1B[90m"
 #define LIGHT_GRAY_COLOR "\x1B[37m"
@@ -17,7 +17,7 @@
 #define YELLOW_COLOR "\x1B[33m"
 #define MAGENTA_COLOR "\x1B[35m"
 #define LIGHT_MAGENTA_COLOR "\x1B[95m"
-#define WHITE_COLOR "\x1B[37m"
+#define WHITE_COLOR "\033[0;37m"
 #define DARK_GREEN "\033[0;32m" 
 #define DARK_BLUE "\033[0;34m" 
 #define DARK_CYAN "\033[0;36m"  

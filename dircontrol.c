@@ -91,15 +91,21 @@ char *retriveLastPath()
     strcpy(shellprofilepath + strlen(home), "/shellprofile");
     int file = open(shellprofilepath, O_RDONLY);
     read(file, text, 4096);
+    char *lastPath = malloc(sizeof(char) * 4096);
     int pos = 0;
     for (pos = 0; pos < strlen(text); pos++)
     {
+        if (strncmp(text + pos, "$LASTPATH=OLDPWD", 16) == 0)
+        {
+            strncpy(lastPath, "OLDPWD", 6);
+            close(file);
+            return lastPath;
+        }
         if (strncmp(text + pos, "$LASTPATH=", 10) == 0)
         {
             break;
         }
     }
-    char *lastPath = malloc(sizeof(char) * 4096);
     close(file);
     strcpy(lastPath, text + pos + 10);
     return lastPath;
@@ -116,7 +122,7 @@ char *getAbsolutePath(char *pwd, char *path)
         strcpy(newpath, "/");
         return newpath;
     }
-    
+
     if (strcmp(dir, "-") == 0)
     {
         return retriveLastPath();

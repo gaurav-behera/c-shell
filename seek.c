@@ -21,7 +21,9 @@ char *searchItem(char *search, char *dir, char *originalDir, int *count, bool fF
         {
             if ((dFlag == true) && (strncmp(itemList[i]->d_name, search, strlen(search)) == 0))
             {
-                printf(BLUE_COLOR "%s\n" RESET_COLOR, getRelativePath(newPath, originalDir));
+                printf(BLUE_COLOR "%s\n", getRelativePath(newPath, originalDir));
+            printf("%s", RESET_COLOR);
+
                 (*count)++;
                 strcpy(retValue, newPath);
             }
@@ -35,7 +37,9 @@ char *searchItem(char *search, char *dir, char *originalDir, int *count, bool fF
         {
             if ((fFlag == true) && (strncmp(itemList[i]->d_name, search, strlen(search)) == 0))
             {
-                printf(GREEN_COLOR "%s\n" RESET_COLOR, getRelativePath(newPath, originalDir));
+                printf(GREEN_COLOR "%s\n", getRelativePath(newPath, originalDir));
+            printf("%s", RESET_COLOR);
+
                 (*count)++;
                 strcpy(retValue, newPath);
             }
@@ -94,7 +98,8 @@ int seek(int argc, char *argv[])
             noFlagsGiven = false;
             fFlag = true;
         }
-        else if (argv[argi][0] == '-'){
+        else if (argv[argi][0] == '-')
+        {
             printWarning("Invalid Flags");
         }
         else
@@ -138,7 +143,8 @@ int seek(int argc, char *argv[])
 
     if (*count == 0)
     {
-        printf("No match found!\n");
+        printf(MAGENTA_COLOR "No match found!\n");
+        printf("%s", RESET_COLOR);
     }
 
     if ((eFlag == true) && (*count == 1))
@@ -169,7 +175,8 @@ int seek(int argc, char *argv[])
                     chdir(foundItem);
                 }
             }
-            else{
+            else
+            {
                 printError();
             }
         }

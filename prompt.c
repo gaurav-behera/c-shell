@@ -3,12 +3,13 @@
 void prompt()
 {
     // getting Username and System Name
-    char userName[4096] = "";
     char systemName[4096] = "";
+    uid_t uid = getuid();
+    struct passwd *name = getpwuid(uid);
 
-    if ((gethostname(systemName, 4096) != 0) || (getlogin_r(userName, 4096) != 0))
+    if ((gethostname(systemName, 4096) == -1) || (name == NULL))
     {
-        perror(WHITE_COLOR "Error in retriving details!\n");
+        printError();
         exit(0);
     }
 
@@ -19,7 +20,7 @@ void prompt()
     char *relPath = getRelativePathHome(pwd);
 
     printf(LIGHT_GREEN_COLOR "<");
-    printf(LIGHT_BLUE_COLOR "%s", userName);
+    printf(LIGHT_BLUE_COLOR "%s", name->pw_name);
     printf(GREEN_COLOR "@");
     printf(CYAN_COLOR "%s", systemName);
     printf(LIGHT_GREEN_COLOR ":");

@@ -6,7 +6,7 @@ void removeProcess(pid_t pid);
 char * getProcessName(pid_t pid);
 
 void executeCommand(char *command, char delimiter);
-void checkBackgroundCompletion();
+int checkBackgroundCompletion();
 
 char * getComamndName(char *command);
 char *getLastCommand();

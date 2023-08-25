@@ -35,7 +35,6 @@ void removeProcess(pid_t pid)
     close(file);
 
     int nextPos = -1, currentPos = 0, startPos = 0;
-    ;
     bool found = false;
     for (currentPos = 0; currentPos < strlen(text); currentPos++)
     {
@@ -58,6 +57,28 @@ void removeProcess(pid_t pid)
     close(file);
 }
 
+int numOfBackgroundProcesses()
+{
+    int count = 1;
+
+    char shellprocessespath[4096] = "";
+    strcpy(shellprocessespath, home);
+    strcpy(shellprocessespath + strlen(home), "/shellprocesses");
+    int file = open(shellprocessespath, O_RDONLY);
+    char text[4096] = "";
+    read(file, text, 4096);
+    close(file);
+    int currentPos = 0;
+    for (currentPos = 0; currentPos < strlen(text); currentPos++)
+    {
+        if (text[currentPos] == '\n')
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
 char *getProcessName(pid_t pid)
 {
     char strPID[10] = "";
@@ -75,11 +96,11 @@ char *getProcessName(pid_t pid)
     bool found = false;
     for (currentPos = 0; currentPos < strlen(text); currentPos++)
     {
-        if (found && text[currentPos] == ':')
+        if (found == true && text[currentPos] == ':')
         {
             startPos = currentPos + 1;
         }
-        if (found && text[currentPos] == '\n')
+        if (found == true && text[currentPos] == '\n')
         {
             endPos = currentPos;
             break;
@@ -89,13 +110,15 @@ char *getProcessName(pid_t pid)
             found = true;
         }
     }
+
     char *processName = malloc(sizeof(char) * 4096);
     memset(processName, '\0', 4096);
     strncpy(processName, text + startPos, endPos - startPos);
+
     return processName;
 }
 
-void checkBackgroundCompletion()
+int checkBackgroundCompletion()
 {
     pid_t pid;
     int status;
@@ -103,15 +126,17 @@ void checkBackgroundCompletion()
     {
         if (WIFEXITED(status))
         {
-            printf("%s exited normally (%d)\n", getProcessName(pid), pid);
+            printf(GRAY_COLOR "%s exited normally (%d)\n", getProcessName(pid), pid);
             removeProcess(pid);
         }
         else if (WIFSIGNALED(status))
         {
-            printf("%s exited abnormally (%d)\n", getProcessName(pid), pid);
+            printf(GRAY_COLOR "%s exited abnormally (%d)\n", getProcessName(pid), pid);
             removeProcess(pid);
         }
+        printf("%s", RESET_COLOR);
     }
+    return 1;
 }
 
 void executeCommand(char *command, char delimiter)
@@ -158,7 +183,7 @@ void executeCommand(char *command, char delimiter)
     {
         successfulRun = pastevents(argCount, arguments);
     }
-    else if (strcmp(function, "proc") == 0)
+    else if (strcmp(function, "proclore") == 0)
     {
         successfulRun = proc(argCount, arguments);
     }
@@ -175,8 +200,11 @@ void executeCommand(char *command, char delimiter)
                 args[i + 1] = arguments[i];
             }
             args[argCount + 1] = NULL;
+            printf("%s", RESET_COLOR);
             execvp(args[0], args);
-            printError();
+            printf("%s", RESET_COLOR);
+
+            printErrorMsg(strcat(args[0], " is not a valid command"));
             exit(EXIT_FAILURE);
         }
         else if (childPID > 0)
@@ -185,14 +213,23 @@ void executeCommand(char *command, char delimiter)
             if (delimiter == '&')
             {
                 // background
-                printf("%d\n", childPID);
+                printf(GRAY_COLOR "[%d] %d\n", numOfBackgroundProcesses(), childPID);
+                printf("%s", RESET_COLOR);
                 saveProcess(childPID, function);
             }
             else
             {
                 // foreground
                 time_t startTime = time(NULL);
-                wait(NULL);
+                int status;
+                pid_t result = waitpid(childPID, &status, 0);
+                if (result == -1)
+                {
+                    printError();
+                    exit(EXIT_FAILURE);
+                }
+                // wait(NULL);
+
                 time_t endTime = time(NULL);
                 int executionTime = endTime - startTime;
                 char lastCommand[4096];
@@ -216,7 +253,7 @@ void executeCommand(char *command, char delimiter)
         }
         else
         {
-            printf("Failed to execute command fork;\n");
+            printErrorMsg("Failed to execute command fork\n");
         }
     }
     // for (int i = 0; i < argCount; i++)
@@ -340,6 +377,7 @@ char *modifyInput(char *input)
 
             if ((strncmp(newCommand, "pastevents execute ", 19) == 0))
             {
+                char modifiedStr[4096] = "";
                 int i = 0;
                 for (i = 19; i < strlen(newCommand); i++)
                 {
@@ -350,17 +388,31 @@ char *modifyInput(char *input)
                 }
                 char countStr[1024] = "";
                 strncpy(countStr, newCommand + 19, i - 19);
-                strcpy(newCommand, getFromHistory(atoi(countStr), true));
-            }
+                strcpy(modifiedStr, getFromHistory(atoi(countStr), true));
 
-            if (input[currentPos] != '\n')
-            {
-                newCommand[strlen(newCommand)] = input[currentPos];
+                if (input[currentPos] != '\n')
+                {
+                    modifiedStr[strlen(modifiedStr)] = input[currentPos];
+                }
+                // strncpy(newInput + strlen(newInput), newCommand, strlen(newCommand));
+                strcat(newInput, modifiedStr);
+                if (input[currentPos] != '\n')
+                {
+                    newInput[strlen(newInput)] = ' ';
+                }
             }
-            strncpy(newInput + strlen(newInput), newCommand, strlen(newCommand));
-            if (input[currentPos] != '\n')
+            else
             {
-                newInput[strlen(newInput)] = ' ';
+                if (input[currentPos] != '\n')
+                {
+                    newCommand[strlen(newCommand)] = input[currentPos];
+                }
+                // strncpy(newInput + strlen(newInput), newCommand, strlen(newCommand));
+                strcat(newInput, newCommand);
+                if (input[currentPos] != '\n')
+                {
+                    newInput[strlen(newInput)] = ' ';
+                }
             }
         }
     }
@@ -369,20 +421,20 @@ char *modifyInput(char *input)
 
 void printError()
 {
-    perror(RED_COLOR "ERROR" LIGHT_RED_COLOR);
-    printf(RESET_COLOR);
+    perror(RED_COLOR "ERROR: " LIGHT_RED_COLOR);
+    printf("%s", RESET_COLOR);
 }
 
 void printWarning(char *message)
 {
     printf(MAGENTA_COLOR "WARNING: " LIGHT_MAGENTA_COLOR);
     printf("%s\n", message);
-    printf(RESET_COLOR);
+    printf("%s", RESET_COLOR);
 }
 
 void printErrorMsg(char *message)
 {
     printf(RED_COLOR "ERROR: " LIGHT_RED_COLOR);
     printf("%s\n", message);
-    printf(RESET_COLOR);
+    printf("%s", RESET_COLOR);
 }

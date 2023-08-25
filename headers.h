@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/utsname.h>
+#include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
 #include <errno.h>
