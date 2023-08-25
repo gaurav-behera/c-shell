@@ -22,7 +22,7 @@ char *searchItem(char *search, char *dir, char *originalDir, int *count, bool fF
             if ((dFlag == true) && (strncmp(itemList[i]->d_name, search, strlen(search)) == 0))
             {
                 printf(BLUE_COLOR "%s\n", getRelativePath(newPath, originalDir));
-            printf("%s", RESET_COLOR);
+                printf("%s", RESET_COLOR);
 
                 (*count)++;
                 strcpy(retValue, newPath);
@@ -38,7 +38,7 @@ char *searchItem(char *search, char *dir, char *originalDir, int *count, bool fF
             if ((fFlag == true) && (strncmp(itemList[i]->d_name, search, strlen(search)) == 0))
             {
                 printf(GREEN_COLOR "%s\n", getRelativePath(newPath, originalDir));
-            printf("%s", RESET_COLOR);
+                printf("%s", RESET_COLOR);
 
                 (*count)++;
                 strcpy(retValue, newPath);
@@ -83,24 +83,31 @@ int seek(int argc, char *argv[])
             fFlag = true;
             eFlag = true;
         }
-        else if (strncmp(argv[argi], "-d", 2) == 0)
+        else if (strcmp(argv[argi], "-d") == 0)
         {
             noFlagsGiven = false;
             dFlag = true;
         }
-        else if (strncmp(argv[argi], "-e", 2) == 0)
+        else if (strcmp(argv[argi], "-e") == 0)
         {
-            // noFlagsGiven = false;
             eFlag = true;
         }
-        else if (strncmp(argv[argi], "-f", 2) == 0)
+        else if (strcmp(argv[argi], "-f") == 0)
         {
             noFlagsGiven = false;
             fFlag = true;
         }
         else if (argv[argi][0] == '-')
         {
-            printWarning("Invalid Flags");
+            if (strlen(argv[argi]) > 0)
+            {
+
+                printWarning("Invalid Flags");
+            }
+            else
+            {
+                break;
+            }
         }
         else
         {
